@@ -167,8 +167,57 @@ after that the bot will visit the link, and then we can get his cookies, and we 
 ```text
 Flag: FLAG{xss_st0r3d_1s_n0t_4_f34tur3_w1l}
 ```
+## Fourth vulnerability --  Insecure Password Reset
 
-## Fourth vulnerability -- hidden api endpoint
+back to password flow, in the `/forum`, there is a hint about forgot password its just a hardcoded md5 i the reset one... let's focus on this target.
+
+<p align="center">
+  <img src="~/../images/vuln07/forpass1.png" alt="App Screenshot" width="800">
+</p>
+
+we took the email's victim, and lets try to see if we can reset also the pass as `jdoe`.
+
+<p align="center">
+  <img src="~/../images/vuln07/forpass2.png" alt="App Screenshot" width="800">
+</p>
+
+and its indeed! they let me to reset the password, so likely the server doesnt check the url is front side what checks it, if we decode the token or encode it the email to md5 we will see the same value.
+
+<p align="center">
+  <img src="~/../images/vuln07/forpass3.png" alt="App Screenshot" width="800">
+</p>
+
+and if we encode the token to md5 its the same value as in the url:
+
+<p align="center">
+  <img src="~/../images/vuln07/forpass4.png" alt="App Screenshot" width="800">
+</p>
+
+so we will continue and we put a new password and we successed.
+
+<p align="center">
+  <img src="~/../images/vuln07/forpass5.png" alt="App Screenshot" width="600">
+</p>
+
+we got in, but where is the flag, where it could be?
+
+<p align="center">
+  <img src="~/../images/vuln07/forpass6.png" alt="App Screenshot" width="600">
+</p>
+
+normally to this event, it shows that the importance of server side check and tokenization. so it would be in profile, specially in change password. and we found it:
+
+<p align="center">
+  <img src="~/../images/vuln07/forpass7.png" alt="App Screenshot" width="600">
+</p>
+
+```text
+Flag: FLAG{r3s3t_t0k3n_w4s_just_md5_lol}
+```
+
+let's move on the next vulnerability.
+
+## Fifth vulnerability -- hidden api endpoint
 
 in this section we will discover the importance of endpoints or API specifically, i went back to robots.txt, and i found endpoints are disallowed, some of them were foribdden, some of them are redirections, not exists
 
@@ -186,7 +235,7 @@ but one of them is public and it shouldn't be, and its `/api/grades`, i access t
 Flag: FLAG{md5_1s_4_n4m3pl4t3_n0t_4_l0ck}
 ```
 
-## Fifth vulnerability -- Mass Assignment
+## Sixth vulnerability -- Mass Assignment
 
 i love this one, in this vulnerability we will see if can manipulate roles or not, as student role my hands are tight, i can do anything else, so we need a higher role.
 
@@ -256,7 +305,7 @@ we found the flag.
 Flag: FLAG{just_p4tch_y0ur_0wn_r0l3_lol}
 ```
 
-## Sixth vulnerability -- XXE leading to SSRF
+## Seventh vulnerability -- XXE leading to SSRF
 
 back to agenda, where we need to make a payload in xml file to find remaining flags, but the vulnerability method i dont know which one, is it xxe to rce or xxe to sqli, or xxe to reverse shell... 
 it was a bit misleading but after i got the hint inside the `/staff/dashboard` 
@@ -271,7 +320,13 @@ it was all about server side request forgery. that's my target now. but which se
   <img src="~/../images/vuln06/xxetossrf2.png" alt="App Screenshot" width="800">
 </p>
 
-after i visted pocketbase via /staff/dashboard endpoint, i know for sure thats where i need to focus on, it has login page where i should trigger.
+after i visted pocketbase via /staff/dashboard endpoint, i know for sure thats where i need to focus on, there is a direct link to the server pocketbase:
+
+<p align="center">
+  <img src="~/../images/vuln06/xxetossrf0.png" alt="App Screenshot" width="500">
+</p>
+
+i opened it, then it shows me a login page where i should trigger.
 
 <p align="center">
   <img src="~/../images/vuln06/xxetossrf3.png" alt="App Screenshot" width="800">
@@ -328,56 +383,115 @@ we secured a flag. and notice that we got also credentials of pocketbase:
 "pb_admin_email":"admin@42network.local",
 "pb_admin_password":"Darkly42Admin!"
 ```
+That's what we will focus on the next vulnerability.
 
-## Seventh vulnerability --  Insecure Password Reset
+## Eighth vulnerability -- Privilege Escalation via PocketBase
 
-back to password flow, in the `/forum`, there is a hint about forgot password its just a hardcoded md5 i the reset one... let's focus on this target.
+so after i logged in as admin from the leaked credentials, i found so much data!
 
 <p align="center">
-  <img src="~/../images/vuln07/forpass1.png" alt="App Screenshot" width="800">
+  <img src="~/../images/vuln08/pea1.png" alt="App Screenshot" width="800">
 </p>
 
-we took the email's victim, and lets try to see if we can reset also the pass as `jdoe`.
+as you can see, it listed me all the users are in the database, also the collection, if we try to click our selves:
 
 <p align="center">
-  <img src="~/../images/vuln07/forpass2.png" alt="App Screenshot" width="800">
+  <img src="~/../images/vuln08/pea2.png" alt="App Screenshot" width="800">
 </p>
 
-and its indeed! they let me to reset the password, so likely the server doesnt check the url is front side what checks it, if we decode the token or encode it the email to md5 we will see the same value.
+so i can edit my role as i want and also anything, i tried to switch my role from cadet to god and switch the level:
 
 <p align="center">
-  <img src="~/../images/vuln07/forpass3.png" alt="App Screenshot" width="800">
+  <img src="~/../images/vuln08/pea3.png" alt="App Screenshot" width="800">
 </p>
 
-and if we encode the token to md5 its the same value as in the url:
+and its done !
 
 <p align="center">
-  <img src="~/../images/vuln07/forpass4.png" alt="App Screenshot" width="800">
+  <img src="~/../images/vuln08/pea4.png" alt="App Screenshot" width="800">
 </p>
 
-so we will continue and we put a new password and we successed.
+there is a new entity in the sidebar named by admin, we need to look for the flag,i checked it i found only the old flag.
 
 <p align="center">
-  <img src="~/../images/vuln07/forpass5.png" alt="App Screenshot" width="600">
+  <img src="~/../images/vuln08/pea5.png" alt="App Screenshot" width="800">
 </p>
 
-we got in, but where is the flag, where it could be?
+if you noticed they put always a link of `pocketbase /_/`, what if the 9th flag is there ? let's search up in every collections, so i went to `internal_audit` collection and found what:
 
 <p align="center">
-  <img src="~/../images/vuln07/forpass6.png" alt="App Screenshot" width="600">
-</p>
-
-normally to this event, it shows that the importance of server side check and tokenization. so it would be in profile, specially in change password. and we found it:
-
-<p align="center">
-  <img src="~/../images/vuln07/forpass7.png" alt="App Screenshot" width="600">
+  <img src="~/../images/vuln08/pea6.png" alt="App Screenshot" width="800">
 </p>
 
 ```text
-Flag: FLAG{r3s3t_t0k3n_w4s_just_md5_lol}
+Flag: FLAG{th3_und3rsc0r3_sl4sh_kn0ws_th3_w4y}
 ```
 
-let's move on the next vulnerability.
+we found the flag, and 2 are left let's hunt them.
 
-## Eighth vulnerability -- 
+## Ninth vulnerability -- Local File Inclusion or known as LFI.
 
+looking back to the endpoint `/project`, i found in the source page something:
+
+<p align="center">
+  <img src="~/../images/vuln09/lfi1.png" alt="App Screenshot" width="800">
+</p>
+
+so we tried to see what's in faq_darkly.pdf and :
+
+<p align="center">
+  <img src="~/../images/vuln09/lfi2.png" alt="App Screenshot" width="800">
+</p>
+
+we noticed that it's just a placeholder but let's see if we can hit the `/etc/passwd`:
+
+<p align="center">
+  <img src="~/../images/vuln09/lfi3.png" alt="App Screenshot" width="800">
+</p>
+
+it returns forbidden 403, can  path traversal works?
+
+<p align="center">
+  <img src="~/../images/vuln09/lfi4.png" alt="App Screenshot" width="800">
+</p>
+
+it works, nut 404 not found, hm so we need to see in a different angle here, i noticed something while i am doing recon in this vulnerability the endpoint is very restricted, but look at the response headers:
+
+<p align="center">
+  <img src="~/../images/vuln09/lfi5.png" alt="App Screenshot" width="800">
+</p>
+
+as you can see, you will noticed that there is headers of `x-backup`
+```text
+x-backup-schedule: daily@03:00
+x-backup-dest: localhost:/opt/pocketbase/pb_data
+x-backup-exclude: data/private_notes.txt
+x-last-backup: 2024-12-01T03:00:00Z
+```
+so could flag be in the private_notes? likely but i am not sure it could be there, so let's test it, 
+
+<p align="center">
+  <img src="~/../images/vuln09/lfi6.png" alt="App Screenshot" width="800">
+</p>
+
+hm didnt work, but wait let's replace /data with ..
+
+<p align="center">
+  <img src="~/../images/vuln09/lfi7.png" alt="App Screenshot" width="800">
+</p>
+
+okay we hit again forbidden, what if we minus the depth ?
+
+<p align="center">
+  <img src="~/../images/vuln09/lfi8.png" alt="App Screenshot" width="800">
+</p>
+
+okay we hit the jackpot!!!!! we found the flag.
+
+```text
+Flag: FLAG{d0t_d0t_sl4sh_4ll_th3_w4y_d0wn}
+```
+
+Let's move on the next vulnerability.
+
+## Tenth vulnerability --
