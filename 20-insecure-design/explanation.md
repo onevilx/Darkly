@@ -9,6 +9,10 @@ amount of careful coding of the current design would fix it. In Darkly several
 security decisions are unsound by construction, independent of any single
 endpoint.
 
+Note: this isn't a 20th distinct bug on the platform — every point below traces
+back to a breach already explained elsewhere (04, 07, 14, 16, 19). It's a
+synthesis, written to name the design-level pattern those bugs share.
+
 ## How it manifests (verified, design-level)
 - **MD5 used as if it were a secret.** The password-reset token is
   `md5(email)` (breach 04) and every user's `pw_hint` is `md5(password)`

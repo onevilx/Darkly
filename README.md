@@ -15,8 +15,12 @@ inside the app step by step up to administrator, 2 more of your choice) across
 10 explained vulnerabilities, and the **bonus part** — evaluated only if the
 mandatory part is perfect — asks for 4 additional flags (10 total) across 5 more
 vulnerabilities, at least one of which mints no flag. This repo clears both: all
-10 flags are recovered in breaches 01–10, and the bonus is doubled with ten more
-weaknesses (11–20) explained with no flag attached.
+10 flags are recovered in breaches 01–10, and the bonus is nearly doubled with
+nine more weaknesses (11–19) explained with no flag attached — bringing the
+running total to 19 distinct vulnerabilities, exactly matching the subject's
+stated platform-wide count. Breach 20 is an extra, on top of that: a
+design-level write-up (OWASP A04) that synthesizes several of the above bugs
+rather than introducing a new instance of its own.
 
 ## Repository layout
 
@@ -56,9 +60,9 @@ containing:
 | 17 | [Security misconfiguration](17-security-misconfiguration/) | A05 |
 | 18 | [Vulnerable & outdated components](18-outdated-components/) | A06 |
 | 19 | [Security logging & monitoring failures](19-logging-monitoring-failures/) | A09 |
-| 20 | [Insecure design](20-insecure-design/) | A04 |
+| 20 | [Insecure design](20-insecure-design/) *(synthesis of 04/07/14/16/19, not a new instance)* | A04 |
 
-**Total: 10 flags recovered (6 mandatory + 4 bonus), 20 vulnerabilities explained (10 mandatory + 10 bonus).**
+**Total: 10 flags recovered (6 mandatory + 4 bonus), 19 vulnerabilities explained (10 mandatory + 9 bonus) — matching the subject's stated platform total exactly — plus a 20th, cross-cutting design-level write-up.**
 
 ## Running an exploit
 
