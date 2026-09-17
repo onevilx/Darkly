@@ -2,6 +2,13 @@
 
 A single combined write-up of the whole engagement. Each entry below jumps to its section.
 
+The subject hides 19 vulnerabilities and 10 flags, split in two: **mandatory** asks
+for 6 flags (4 via a privilege-escalation chain up to administrator, 2 of choice)
+across 10 explained vulnerabilities, and **bonus** asks for 4 more flags (10 total)
+across 5 more vulnerabilities. Breaches 01–10 below cover the mandatory part (all
+10 flags recovered, more than the 6 required); breaches 11–20 cover the bonus part
+(ten weaknesses explained with no flag, double the 5 required).
+
 ## Table of Contents
 
   - [Reconnaissance & interaction](#as-always-first-thing-first-we-must-interact-with-the-web-app-so-we-can-get-all-the-recon-to-retrieve-the-vulns)
@@ -14,17 +21,18 @@ A single combined write-up of the whole engagement. Each entry below jumps to it
   - [Seventh vulnerability -- XXE leading to SSRF](#seventh-vulnerability----xxe-leading-to-ssrf)
   - [Eighth vulnerability -- Privilege Escalation via PocketBase](#eighth-vulnerability----privilege-escalation-via-pocketbase)
   - [Ninth vulnerability -- Local File Inclusion or known as LFI.](#ninth-vulnerability----local-file-inclusion-or-known-as-lfi)
+  - [Tenth vulnerability -- CSRF (Cross-Site Request Forgery)](#tenth-vulnerability----csrf-cross-site-request-forgery)
 - [Bonus part — additional vulnerabilities (no flag required)](#bonus-part--additional-vulnerabilities-no-flag-required)
-  - [Tenth vulnerability -- Reflected XSS (Newsletter)](#tenth-vulnerability----reflected-xss-newsletter)
-  - [Eleventh vulnerability -- Open Redirect](#eleventh-vulnerability----open-redirect)
-  - [Twelfth vulnerability -- Weak & leaked JWT signing secret → session forgery](#twelfth-vulnerability----weak--leaked-jwt-signing-secret--session-forgery)
-  - [Thirteenth vulnerability -- Weak passwords + exposed MD5 password hints (Cryptographic / Auth failure)](#thirteenth-vulnerability----weak-passwords--exposed-md5-password-hints-cryptographic--auth-failure)
-  - [Fourteenth vulnerability -- PocketBase filter injection (NoSQL-style injection)](#fourteenth-vulnerability----pocketbase-filter-injection-nosql-style-injection)
-  - [Fifteenth vulnerability -- Sensitive data / schema disclosure & BOLA](#fifteenth-vulnerability----sensitive-data--schema-disclosure--bola)
-  - [Sixteenth vulnerability -- Security misconfiguration (verbose headers, non-HttpOnly cookie, exposed admin console)](#sixteenth-vulnerability----security-misconfiguration-verbose-headers-non-httponly-cookie-exposed-admin-console)
-  - [Seventeenth vulnerability -- Vulnerable & Outdated Components (OWASP A06)](#seventeenth-vulnerability----vulnerable--outdated-components-owasp-a06)
-  - [Eighteenth vulnerability -- Security Logging & Monitoring Failures (OWASP A09)](#eighteenth-vulnerability----security-logging--monitoring-failures-owasp-a09)
-  - [Nineteenth vulnerability -- Insecure Design (OWASP A04)](#nineteenth-vulnerability----insecure-design-owasp-a04)
+  - [Eleventh vulnerability -- Reflected XSS (Newsletter)](#eleventh-vulnerability----reflected-xss-newsletter)
+  - [Twelfth vulnerability -- Open Redirect](#twelfth-vulnerability----open-redirect)
+  - [Thirteenth vulnerability -- Weak & leaked JWT signing secret → session forgery](#thirteenth-vulnerability----weak--leaked-jwt-signing-secret--session-forgery)
+  - [Fourteenth vulnerability -- Weak passwords + exposed MD5 password hints (Cryptographic / Auth failure)](#fourteenth-vulnerability----weak-passwords--exposed-md5-password-hints-cryptographic--auth-failure)
+  - [Fifteenth vulnerability -- PocketBase filter injection (NoSQL-style injection)](#fifteenth-vulnerability----pocketbase-filter-injection-nosql-style-injection)
+  - [Sixteenth vulnerability -- Sensitive data / schema disclosure & BOLA](#sixteenth-vulnerability----sensitive-data--schema-disclosure--bola)
+  - [Seventeenth vulnerability -- Security misconfiguration (verbose headers, non-HttpOnly cookie, exposed admin console)](#seventeenth-vulnerability----security-misconfiguration-verbose-headers-non-httponly-cookie-exposed-admin-console)
+  - [Eighteenth vulnerability -- Vulnerable & Outdated Components (OWASP A06)](#eighteenth-vulnerability----vulnerable--outdated-components-owasp-a06)
+  - [Nineteenth vulnerability -- Security Logging & Monitoring Failures (OWASP A09)](#nineteenth-vulnerability----security-logging--monitoring-failures-owasp-a09)
+  - [Twentieth vulnerability -- Insecure Design (OWASP A04)](#twentieth-vulnerability----insecure-design-owasp-a04)
 - [Summary](#summary)
 
 ---
@@ -542,15 +550,70 @@ Flag: FLAG{d0t_d0t_sl4sh_4ll_th3_w4y_d0wn}
 
 Let's move on the next vulnerability.
 
+## Tenth vulnerability -- CSRF (Cross-Site Request Forgery)
+
+> ### [Read the full breach write-up — exploit, impact & remediation →](10-csrf-origin-validation/explanation.md)
+
+last one, and the hint said `csrf origin`, then `CSRF cookie set to Samesite=lax`, then `POST /profile/me/settings`, so i went step by step on those three.
+
+first, login normally as `jdoe` (our foothold account since vuln #2) and grab the request in Burp to see the session cookie attributes:
+
+<p align="center">
+  <img src="images/vuln10/csrf_origin1.png" alt="App Screenshot" width="900">
+</p>
+
+```text
+set-cookie: session=eyJhbGciOiJIUzI1NiIs...; Path=/; SameSite=lax
+```
+
+no `Secure`, no `HttpOnly`, and `SameSite=lax`. that made me think first of the classic Lax bypass: convert the state-changing request from POST to GET, since Lax still lets the cookie ride along on a top-level cross-site GET navigation. so i tested `GET /profile/me/settings?first_name=x&...` — dead end, the route only renders the page on GET, it never applies the update. so that bypass is closed here.
+
+so i went back to basics: does the server even check who is asking? i went to `/profile/me/settings` (the form that updates `first_name`, `last_name`, `campus`), sent it to Repeater, and just added a completely fake `Origin` header pointing to a random domain i don't own:
+
+<p align="center">
+  <img src="images/vuln10/csrf_origin2.png" alt="App Screenshot" width="900">
+</p>
+
+```text
+POST /profile/me/settings HTTP/1.1
+Origin: https://example.com
+Cookie: session=<jdoe's session>
+...
+
+first_name=CSRF_ORIGIN_TEST&last_name=Doe&campus=Wilcity
+```
+
+and it just... worked. 302 back to the settings page, and the flag was sitting right there in the redirect:
+
+```text
+location: /profile/me/settings?csrf_flag=FLAG%7Bcsrf_4ny_0r1g1n_1s_w3lc0m3%7D
+```
+
+```text
+Flag: FLAG{csrf_4ny_0r1g1n_1s_w3lc0m3}
+```
+
+no `Origin`/`Referer` validation, no CSRF token in the form, nothing. the only thing sitting between an attacker and this endpoint is the browser's own `SameSite=Lax` cookie policy — which is a *client-side* mitigation, not something the server actually enforces itself.
+
+**one honest caveat, because i actually tested it instead of assuming:** i built the textbook exploit — an auto-submitting HTML `<form method="POST">` hosted on a different origin — and drove it in a real Chromium browser against the live app, with the victim's session cookie already set, exactly like a real attacker's page would be visited by a logged-in victim. Result: the browser withheld the `session` cookie on that cross-site POST (that's `SameSite=Lax` doing exactly its job) and the request bounced straight to `/login`, no update happened. so the *naive* "share this HTML page and wait" version of this attack does **not** work against a fully up-to-date browser.
+
+that doesn't make the finding fake, it just means the real risk lives in the gap `SameSite=Lax` doesn't cover: the server has zero defense-in-depth of its own. anything that gets a request to this endpoint with the cookie attached but from a forged origin — a compromised/attacker-controlled subdomain (same-site, so the cookie rides along regardless of Lax), an older or non-compliant browser/webview, a proxy or malicious extension that replays captured requests, or simply an attacker with any means of directly issuing the HTTP request (which is exactly how we captured the flag) — sails right through, because the app never actually checks `Origin`. that's the whole joke in the flag: `csrf_4ny_0r1g1n_1s_w3lc0m3`, any origin is welcome, because nobody's checking.
+
+```text
+Flag: FLAG{csrf_4ny_0r1g1n_1s_w3lc0m3}
+```
+
+that's all 10 flags. from an unauthenticated IDOR all the way to a stored XSS, an insecure MD5 reset token, a leaked API, a self-service mass assignment, an XXE-to-SSRF that leaked admin creds, a PocketBase privesc, an LFI via a backup path, and finally a CSRF endpoint with no server-side origin checks at all. moral of the story across basically every single one of these: never trust the client, and never let a single security control (a cookie flag, a `robots.txt` disallow, a frontend check) be the *only* thing standing between a user and someone else's data.
+
 ---
 
 # Bonus part — additional vulnerabilities (no flag required)
 
-> The subject requires, for the bonus, **5 more vulnerabilities** on top of the 10 mandatory ones (one of which — at least — exposes no flag). The seven weaknesses below were all confirmed live against `localhost:4942` / `localhost:8090`. None of them are needed to become administrator, and (in this build) none of them mint a new `FLAG{...}` token — they are the "weaknesses that expose no flag" the subject talks about. Together with the nine above, they bring the audit to **16 explained vulnerabilities**.
+> The subject requires, for the bonus, **5 more vulnerabilities** on top of the 10 mandatory ones (one of which — at least — exposes no flag). The ten weaknesses below were all confirmed live against `localhost:4942` / `localhost:8090`. None of them are needed to become administrator, and (in this build) none of them mint a new `FLAG{...}` token — they are the "weaknesses that expose no flag" the subject talks about. Together with the ten flagged breaches above, they bring the audit to **20 explained vulnerabilities**.
 
-## Tenth vulnerability -- Reflected XSS (Newsletter)
+## Eleventh vulnerability -- Reflected XSS (Newsletter)
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](10-reflected-xss/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](11-reflected-xss/explanation.md)
 
 The `/newsletter` page echoes the `email` parameter **straight back, unescaped**, into the "subscribed with:" success banner. The developers even argue about it in the HTML source:
 
@@ -569,12 +632,12 @@ http://localhost:4942/newsletter?email=<script>alert(document.cookie)</script>&m
 
 The script executes and pops the victim's session cookie. Reproduced in the browser — the alert shows the full `session=...` JWT.
 
-- **Impact:** arbitrary JavaScript in a victim's session. Combined with the missing `HttpOnly` flag (see vuln #16), a crafted newsletter link sent to a higher-privileged user steals their session token.
+- **Impact:** arbitrary JavaScript in a victim's session. Combined with the missing `HttpOnly` flag (see vuln #17), a crafted newsletter link sent to a higher-privileged user steals their session token.
 - **Remediation:** context-aware output encoding (HTML-escape the banner exactly like the input `value`); never build HTML from raw request parameters; add a strict `Content-Security-Policy`.
 
-## Eleventh vulnerability -- Open Redirect
+## Twelfth vulnerability -- Open Redirect
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](11-open-redirect/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](12-open-redirect/explanation.md)
 
 The footer "42.tech" / "Intra" links go through a redirector that trusts an attacker-controlled URL:
 
@@ -589,9 +652,9 @@ curl -s -D - "http://localhost:4942/redirect?next=https://evil.example.com"
 - **Impact:** phishing / credential harvesting under a trusted domain; can be chained with OAuth/token flows to leak secrets to an attacker origin.
 - **Remediation:** allow-list of internal paths only; reject absolute/scheme/`//` URLs; if external links are needed, show an interstitial and sign the target.
 
-## Twelfth vulnerability -- Weak & leaked JWT signing secret → session forgery
+## Thirteenth vulnerability -- Weak & leaked JWT signing secret → session forgery
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](12-jwt-weak-secret-forgery/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](13-jwt-weak-secret-forgery/explanation.md)
 
 The application signs its session cookie with **HS256** using the secret `42network`. That secret is (a) trivially guessable and (b) leaked twice — base64 in Wil's maintenance forum post (`dmFsaWRhdGlvbl9rZXk9NDJuZXR3b3Jr` → `validation_key=42network`) and in the XXE-leaked `/internal/config` (`jwt_secret`).
 
@@ -613,9 +676,9 @@ print(f"session={h}.{p}.{sig}")
 - **Impact:** complete authentication/authorization bypass — become any user at any privilege level without credentials.
 - **Remediation:** use a long, random, secret-managed signing key (never commit/leak it); rotate it; prefer server-side sessions or short-lived asymmetric (RS256) tokens; never expose it via config endpoints.
 
-## Thirteenth vulnerability -- Weak passwords + exposed MD5 password hints (Cryptographic / Auth failure)
+## Fourteenth vulnerability -- Weak passwords + exposed MD5 password hints (Cryptographic / Auth failure)
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](13-weak-passwords-md5-hints/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](14-weak-passwords-md5-hints/explanation.md)
 
 Every user record carries a `pw_hint` field that is just the **unsalted MD5 of the password**, and it is readable (via the IDOR/PocketBase exposure). Cracking against `rockyou.txt`:
 
@@ -637,9 +700,9 @@ for w in open("rockyou.txt","rb"):
 - **Impact:** account takeover of any user whose password is weak; unsalted MD5 offers no protection against rainbow tables.
 - **Remediation:** never store a password "hint" that is derived from the password; hash passwords with bcrypt/argon2 (salted, slow); enforce password strength.
 
-## Fourteenth vulnerability -- PocketBase filter injection (NoSQL-style injection)
+## Fifteenth vulnerability -- PocketBase filter injection (NoSQL-style injection)
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](14-pocketbase-filter-injection/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](15-pocketbase-filter-injection/explanation.md)
 
 `/api/grades?student=<id>` builds a PocketBase filter string from the parameter without sanitisation, so filter syntax can be injected. The forum `search` parameter is injectable the same way.
 
@@ -660,9 +723,9 @@ curl -s --get "http://localhost:4942/forum" --data-urlencode 'search=zzz" || "1"
 - **Impact:** authorization bypass on record filtering; an attacker can enumerate other users' records and, via relation traversal in the filter, reach fields they should not see.
 - **Remediation:** never concatenate user input into filter strings; use PocketBase parameterised filters (`filter="student={:id}", {"id": ...}`); enforce collection API rules server-side.
 
-## Fifteenth vulnerability -- Sensitive data / schema disclosure & BOLA
+## Sixteenth vulnerability -- Sensitive data / schema disclosure & BOLA
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](15-sensitive-data-disclosure-bola/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](16-sensitive-data-disclosure-bola/explanation.md)
 
 Several endpoints leak information that should be internal:
 
@@ -682,9 +745,9 @@ curl -s -H "Cookie: session=<any valid session>" \
 - **Impact:** roadmap for every other attack (which fields to mass-assign, where to inject) plus direct disclosure of private notes / password hints of other users.
 - **Remediation:** remove internal/debug documentation endpoints from production; enforce per-object authorization on `/api/users/{id}` (return only the caller's own private fields); keep secrets out of any reachable config route.
 
-## Sixteenth vulnerability -- Security misconfiguration (verbose headers, non-HttpOnly cookie, exposed admin console)
+## Seventeenth vulnerability -- Security misconfiguration (verbose headers, non-HttpOnly cookie, exposed admin console)
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](16-security-misconfiguration/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](17-security-misconfiguration/explanation.md)
 
 Multiple hardening failures, none of which yield a flag but each of which weakens the platform:
 
@@ -699,16 +762,16 @@ curl -s -D - -o /dev/null "http://localhost:4942/backup"
 ```
 
 Additional items:
-- **Session cookie is not `HttpOnly`** — `document.cookie` returns the JWT (proven with vuln #10), so any XSS steals the session. (Confirmed by sophie's own TODO: "migrate session cookie to httponly=true — ticket #4201".)
+- **Session cookie is not `HttpOnly`** — `document.cookie` returns the JWT (proven with vuln #11), so any XSS steals the session. (Confirmed by sophie's own TODO: "migrate session cookie to httponly=true — ticket #4201".)
 - **PocketBase admin UI is reachable** at `http://localhost:8090/_/` and, combined with the leaked admin creds (vuln #7→#8), gives full DB control.
 - Verbose framework/version banners aid targeted exploitation.
 
 - **Impact:** information leakage that shortcuts almost every other breach in this report; XSS-to-account-takeover made trivial by the missing cookie flags.
 - **Remediation:** strip `X-Powered-By`/custom `X-*` headers in production; set session cookies `HttpOnly`, `Secure`, `SameSite=Strict`; never expose the admin console to untrusted networks; remove debug/backup metadata headers.
 
-## Seventeenth vulnerability -- Vulnerable & Outdated Components (OWASP A06)
+## Eighteenth vulnerability -- Vulnerable & Outdated Components (OWASP A06)
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](17-outdated-components/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](18-outdated-components/explanation.md)
 
 The stack advertises its exact versions and the team documents having **disabled a security library on purpose**:
 
@@ -731,9 +794,9 @@ Running stdlib `xml.etree` instead of `defusedxml` is precisely the outdated/mis
 - **Remediation:** re-enable `defusedxml` (or `lxml` with entity resolution off); keep dependencies patched and pinned to maintained versions; don't advertise versions in headers.
 - *No flag (root-cause / explain-only weakness).*
 
-## Eighteenth vulnerability -- Security Logging & Monitoring Failures (OWASP A09)
+## Nineteenth vulnerability -- Security Logging & Monitoring Failures (OWASP A09)
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](18-logging-monitoring-failures/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](19-logging-monitoring-failures/explanation.md)
 
 There is no meaningful logging, alerting, or anti-automation, and the "telemetry" is admitted to be fake:
 
@@ -761,16 +824,16 @@ During this whole audit — hundreds of requests, credential guessing, session f
 - **Remediation:** real server-side logging of security events, alerting/anomaly detection, login rate-limiting + lockout/captcha, and access control on log data.
 - *No flag (explain-only weakness).*
 
-## Nineteenth vulnerability -- Insecure Design (OWASP A04)
+## Twentieth vulnerability -- Insecure Design (OWASP A04)
 
-> ### [Read the full breach write-up — exploit, impact & remediation →](19-insecure-design/explanation.md)
+> ### [Read the full breach write-up — exploit, impact & remediation →](20-insecure-design/explanation.md)
 
 Several weaknesses in Darkly are **design choices rather than isolated bugs** — the system is insecure *as specified*, so patching individual endpoints would not fix it. All of the following are confirmed elsewhere in this report:
 
-- **MD5 used as if it were a secret** — the reset token is `md5(email)` (vuln 4) and every `pw_hint` is `md5(password)` (vuln 13). A fast, unsalted, public function used where a secret/unpredictable token is required.
+- **MD5 used as if it were a secret** — the reset token is `md5(email)` (vuln 4) and every `pw_hint` is `md5(password)` (vuln 14). A fast, unsalted, public function used where a secret/unpredictable token is required.
 - **Predictable-by-construction tokens** — the reset token is derived deterministically from a public identifier, so it can be reproduced offline for any user.
-- **No anti-automation by design** — no rate-limit, lockout, or CAPTCHA on login or reset (vuln 18).
-- **Secrets reachable by design** — `/internal/config` leaks the JWT secret and PB admin creds (vuln 7); `/api/docs-internal` publishes the schema and writable fields (vuln 15).
+- **No anti-automation by design** — no rate-limit, lockout, or CAPTCHA on login or reset (vuln 19).
+- **Secrets reachable by design** — `/internal/config` leaks the JWT secret and PB admin creds (vuln 7); `/api/docs-internal` publishes the schema and writable fields (vuln 16).
 
 - **Impact:** multiple breaches are the *expected* behaviour of the system as designed; the threat model was never applied to the design (predictable tokens, fast hashes as secrets, reachable internals).
 - **Remediation:** threat-model up front; use CSPRNG single-use server-bound tokens; hash passwords with bcrypt/argon2; build anti-automation into auth flows; keep secrets/schema out of any reachable endpoint.
@@ -791,23 +854,16 @@ Several weaknesses in Darkly are **design choices rather than isolated bugs** �
 | [7](#seventh-vulnerability----xxe-leading-to-ssrf) | XXE → SSRF (`/internal/config`) | `FLAG{d3fus3dxml_n3xt_spr1nt_pr0m1s3}` |
 | [8](#eighth-vulnerability----privilege-escalation-via-pocketbase) | Privilege Escalation via PocketBase | `FLAG{th3_und3rsc0r3_sl4sh_kn0ws_th3_w4y}` |
 | [9](#ninth-vulnerability----local-file-inclusion-or-known-as-lfi) | LFI / Path Traversal | `FLAG{d0t_d0t_sl4sh_4ll_th3_w4y_d0wn}` |
-| [10](#tenth-vulnerability----reflected-xss-newsletter) | Reflected XSS (Newsletter) | — (no flag) |
-| [11](#eleventh-vulnerability----open-redirect) | Open Redirect | — (no flag) |
-| [12](#twelfth-vulnerability----weak--leaked-jwt-signing-secret--session-forgery) | Weak/leaked JWT secret → session forgery | — (no flag) |
-| [13](#thirteenth-vulnerability----weak-passwords--exposed-md5-password-hints-cryptographic--auth-failure) | Weak passwords + exposed MD5 pw_hint | — (no flag) |
-| [14](#fourteenth-vulnerability----pocketbase-filter-injection-nosql-style-injection) | PocketBase filter injection | — (no flag) |
-| [15](#fifteenth-vulnerability----sensitive-data--schema-disclosure--bola) | Sensitive data / schema disclosure & BOLA | — (no flag) |
-| [16](#sixteenth-vulnerability----security-misconfiguration-verbose-headers-non-httponly-cookie-exposed-admin-console) | Security misconfiguration (headers / cookie / admin console) | — (no flag) |
-| [17](#seventeenth-vulnerability----vulnerable--outdated-components-owasp-a06) | Vulnerable & outdated components (A06 — defusedxml disabled) | — (no flag) |
-| [18](#eighteenth-vulnerability----security-logging--monitoring-failures-owasp-a09) | Security logging & monitoring failures (A09 — fake telemetry, no rate-limit) | — (no flag) |
-| [19](#nineteenth-vulnerability----insecure-design-owasp-a04) | Insecure design (A04 — md5-by-design, predictable tokens, no anti-automation) | — (no flag) |
+| [10](#tenth-vulnerability----csrf-cross-site-request-forgery) | CSRF — no Origin/Referer validation (`/profile/me/settings`) | `FLAG{csrf_4ny_0r1g1n_1s_w3lc0m3}` |
+| [11](#eleventh-vulnerability----reflected-xss-newsletter) | Reflected XSS (Newsletter) | — (no flag) |
+| [12](#twelfth-vulnerability----open-redirect) | Open Redirect | — (no flag) |
+| [13](#thirteenth-vulnerability----weak--leaked-jwt-signing-secret--session-forgery) | Weak/leaked JWT secret → session forgery | — (no flag) |
+| [14](#fourteenth-vulnerability----weak-passwords--exposed-md5-password-hints-cryptographic--auth-failure) | Weak passwords + exposed MD5 pw_hint | — (no flag) |
+| [15](#fifteenth-vulnerability----pocketbase-filter-injection-nosql-style-injection) | PocketBase filter injection | — (no flag) |
+| [16](#sixteenth-vulnerability----sensitive-data--schema-disclosure--bola) | Sensitive data / schema disclosure & BOLA | — (no flag) |
+| [17](#seventeenth-vulnerability----security-misconfiguration-verbose-headers-non-httponly-cookie-exposed-admin-console) | Security misconfiguration (headers / cookie / admin console) | — (no flag) |
+| [18](#eighteenth-vulnerability----vulnerable--outdated-components-owasp-a06) | Vulnerable & outdated components (A06 — defusedxml disabled) | — (no flag) |
+| [19](#nineteenth-vulnerability----security-logging--monitoring-failures-owasp-a09) | Security logging & monitoring failures (A09 — fake telemetry, no rate-limit) | — (no flag) |
+| [20](#twentieth-vulnerability----insecure-design-owasp-a04) | Insecure design (A04 — md5-by-design, predictable tokens, no anti-automation) | — (no flag) |
 
-So in the end i got **9 flags** and explained **19 vulnerabilities**. The subject says the platform hides 10 flags and 19 vulns, so the vuln side is fully covered, and the bonus (5 more vulns with at least one that gives no flag) is easily met since vulns 10 to 19 all give no flag. The only thing i couldn't get is the 10th flag. i wrote down below why, honestly.
-
-### about the 10th flag
-
-i really dug for this one. i dumped every PocketBase collection as admin, read every file i could reach through the LFI, hit every route as every role from guest all the way up to god, and tried every vuln class the original Darkly uses. the only thing that hands you a flag on the spot is the avatar upload trick (`?upload_flag=`), and the 9 flags i found are the only ones actually living in the data or reachable through the site.
-
-in the original Darkly, reflected XSS and open redirect each drop a flag, but here both of them fire fine and just don't return any token. the moderation bot in this build also runs as a normal `moderator` account, nothing privileged. so my best guess is the 10th flag only gets wired up on the graded `.ova` appliance, probably behind some privileged bot you'd hit with the stored-XSS + cookie-steal chain.
-
-next step is either try that bot chain on the official VM, or just ask the author what the 10th flag is actually meant to be.
+So in the end i got **10 flags** (6 mandatory + 4 bonus) and explained **20 vulnerabilities**. The subject says the platform hides 10 flags and 19 vulns, so both are covered, and the bonus (5 more vulns with at least one that gives no flag) is easily met since vulns 11 to 20 all give no flag.

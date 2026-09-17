@@ -9,6 +9,15 @@ subject's scope.
 > **Combined walk-through:** [`walkthrough.md`](walkthrough.md) — the full,
 > illustrated audit (recon → every flag → bonus weaknesses).
 
+The subject seeds the platform with **19 vulnerabilities hiding 10 flags**, split
+in two: the **mandatory part** asks for 6 flags (4 won by escalating privilege
+inside the app step by step up to administrator, 2 more of your choice) across
+10 explained vulnerabilities, and the **bonus part** — evaluated only if the
+mandatory part is perfect — asks for 4 additional flags (10 total) across 5 more
+vulnerabilities, at least one of which mints no flag. This repo clears both: all
+10 flags are recovered in breaches 01–10, and the bonus is doubled with ten more
+weaknesses (11–20) explained with no flag attached.
+
 ## Repository layout
 
 Each vulnerability lives in **its own folder** (as suggested by the subject),
@@ -19,7 +28,7 @@ containing:
 - `flag` — the recovered token, when the breach yields one
 - `Resources/` — screenshots / evidence
 
-## Flags recovered (9)
+## Flags recovered (10)
 
 | # | Breach | Flag |
 |---|--------|------|
@@ -32,23 +41,24 @@ containing:
 | 07 | [XXE → SSRF](07-xxe-to-ssrf/) | `FLAG{d3fus3dxml_n3xt_spr1nt_pr0m1s3}` |
 | 08 | [Privilege Escalation via PocketBase](08-privilege-escalation-pocketbase/) | `FLAG{th3_und3rsc0r3_sl4sh_kn0ws_th3_w4y}` |
 | 09 | [LFI / Path Traversal](09-lfi-path-traversal/) | `FLAG{d0t_d0t_sl4sh_4ll_th3_w4y_d0wn}` |
+| 10 | [CSRF — no Origin/Referer validation](10-csrf-origin-validation/) | `FLAG{csrf_4ny_0r1g1n_1s_w3lc0m3}` |
 
 ## Additional weaknesses explained (no flag)
 
 | # | Breach | OWASP |
 |---|--------|-------|
-| 10 | [Reflected XSS (Newsletter)](10-reflected-xss/) | A03 |
-| 11 | [Open Redirect](11-open-redirect/) | A01 |
-| 12 | [Weak/leaked JWT secret → session forgery](12-jwt-weak-secret-forgery/) | A02/A07 |
-| 13 | [Weak passwords + exposed MD5 hints](13-weak-passwords-md5-hints/) | A02/A07 |
-| 14 | [PocketBase filter injection](14-pocketbase-filter-injection/) | A03 |
-| 15 | [Sensitive data disclosure & BOLA](15-sensitive-data-disclosure-bola/) | A01/A05 |
-| 16 | [Security misconfiguration](16-security-misconfiguration/) | A05 |
-| 17 | [Vulnerable & outdated components](17-outdated-components/) | A06 |
-| 18 | [Security logging & monitoring failures](18-logging-monitoring-failures/) | A09 |
-| 19 | [Insecure design](19-insecure-design/) | A04 |
+| 11 | [Reflected XSS (Newsletter)](11-reflected-xss/) | A03 |
+| 12 | [Open Redirect](12-open-redirect/) | A01 |
+| 13 | [Weak/leaked JWT secret → session forgery](13-jwt-weak-secret-forgery/) | A02/A07 |
+| 14 | [Weak passwords + exposed MD5 hints](14-weak-passwords-md5-hints/) | A02/A07 |
+| 15 | [PocketBase filter injection](15-pocketbase-filter-injection/) | A03 |
+| 16 | [Sensitive data disclosure & BOLA](16-sensitive-data-disclosure-bola/) | A01/A05 |
+| 17 | [Security misconfiguration](17-security-misconfiguration/) | A05 |
+| 18 | [Vulnerable & outdated components](18-outdated-components/) | A06 |
+| 19 | [Security logging & monitoring failures](19-logging-monitoring-failures/) | A09 |
+| 20 | [Insecure design](20-insecure-design/) | A04 |
 
-**Total: 9 flags recovered, 19 vulnerabilities explained.**
+**Total: 10 flags recovered, 20 vulnerabilities explained.**
 
 ## Running an exploit
 
@@ -56,15 +66,5 @@ containing:
 # most scripts take a BASE url and, where needed, a SESSION cookie
 BASE=http://localhost:4942 ./01-broken-access-control-idor/exploit.sh
 SESSION=<student-cookie> ./06-mass-assignment/exploit.sh
+SESSION=<student-cookie> ./10-csrf-origin-validation/exploit.sh
 ```
-
-## A note on the 10th flag
-
-The subject says there are 10 flags. i found 9. i looked for the last one
-everywhere i could on the web target: dumped every PocketBase collection as
-admin, read every file i could reach with the LFI, hit every route as every
-role from guest up to god, and tried every vuln class the original Darkly uses.
-it just isn't there in this build, so my guess is the 10th flag only gets wired
-up on the graded appliance. full reasoning is at the end of
-[`walkthrough.md`](walkthrough.md). i did **not** touch or reverse-engineer the
-appliance, since the subject says not to.

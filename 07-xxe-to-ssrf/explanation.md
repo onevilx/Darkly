@@ -38,7 +38,7 @@ reach. The deploy log admits `defusedxml` was "disabled temporarily."
 
 ## Impact
 The single most valuable request in the audit — it leaks the **JWT signing
-secret** (weaponised in breach 12) *and* the **PocketBase admin credentials**
+secret** (weaponised in breach 13) *and* the **PocketBase admin credentials**
 (weaponised in breach 08), collapsing the external/internal trust boundary.
 
 ## How it could have been avoided (remediation)
