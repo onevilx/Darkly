@@ -58,7 +58,7 @@ containing:
 | 19 | [Security logging & monitoring failures](19-logging-monitoring-failures/) | A09 |
 | 20 | [Insecure design](20-insecure-design/) | A04 |
 
-**Total: 10 flags recovered, 20 vulnerabilities explained.**
+**Total: 10 flags recovered (6 mandatory + 4 bonus), 20 vulnerabilities explained (10 mandatory + 10 bonus).**
 
 ## Running an exploit
 

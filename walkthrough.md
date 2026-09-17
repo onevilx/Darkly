@@ -215,13 +215,13 @@ Flag: FLAG{xss_st0r3d_1s_n0t_4_f34tur3_w1l}
 
 > ### [Read the full breach write-up — exploit, impact & remediation →](04-insecure-password-reset/explanation.md)
 
-back to password flow, in the `/forum`, there is a hint about forgot password its just a hardcoded md5 i the reset one... let's focus on this target.
+back to password flow, in the `/forum`, a student named `benjamin` posted a public "PSA" outing the bug on himself: the reset link worked instantly with no email, the token was just sitting in the URL, and it's literally `md5(email)` — he even says once you're in, "your account recovery code is just sitting there on your profile settings page." he basically told us the vuln AND where the flag is.
 
 <p align="center">
   <img src="images/vuln07/forpass1.png" alt="App Screenshot" width="800">
 </p>
 
-we took the email's victim, and lets try to see if we can reset also the pass as `jdoe`.
+so we take `benjamin`'s email (public, from breach 01) and request a reset for his account.
 
 <p align="center">
   <img src="images/vuln07/forpass2.png" alt="App Screenshot" width="800">
@@ -233,13 +233,13 @@ and its indeed! they let me to reset the password, so likely the server doesnt c
   <img src="images/vuln07/forpass3.png" alt="App Screenshot" width="800">
 </p>
 
-and if we encode the token to md5 its the same value as in the url:
+and if we encode `benjamin`'s email to md5 its the same value as in the url:
 
 <p align="center">
   <img src="images/vuln07/forpass4.png" alt="App Screenshot" width="800">
 </p>
 
-so we will continue and we put a new password and we successed.
+so we will continue and we put a new password and we successed, logged in as `benjamin`.
 
 <p align="center">
   <img src="images/vuln07/forpass5.png" alt="App Screenshot" width="600">
@@ -251,7 +251,7 @@ we got in, but where is the flag, where it could be?
   <img src="images/vuln07/forpass6.png" alt="App Screenshot" width="600">
 </p>
 
-normally to this event, it shows that the importance of server side check and tokenization. so it would be in profile, specially in change password. and we found it:
+`benjamin` already told us: profile settings, account recovery code. so we go to `/profile/me/settings` and, exactly as he said, there's a box literally labelled "Account recovery code" — and we found it:
 
 <p align="center">
   <img src="images/vuln07/forpass7.png" alt="App Screenshot" width="600">
@@ -599,10 +599,6 @@ no `Origin`/`Referer` validation, no CSRF token in the form, nothing. the only t
 
 that doesn't make the finding fake, it just means the real risk lives in the gap `SameSite=Lax` doesn't cover: the server has zero defense-in-depth of its own. anything that gets a request to this endpoint with the cookie attached but from a forged origin — a compromised/attacker-controlled subdomain (same-site, so the cookie rides along regardless of Lax), an older or non-compliant browser/webview, a proxy or malicious extension that replays captured requests, or simply an attacker with any means of directly issuing the HTTP request (which is exactly how we captured the flag) — sails right through, because the app never actually checks `Origin`. that's the whole joke in the flag: `csrf_4ny_0r1g1n_1s_w3lc0m3`, any origin is welcome, because nobody's checking.
 
-```text
-Flag: FLAG{csrf_4ny_0r1g1n_1s_w3lc0m3}
-```
-
 that's all 10 flags. from an unauthenticated IDOR all the way to a stored XSS, an insecure MD5 reset token, a leaked API, a self-service mass assignment, an XXE-to-SSRF that leaked admin creds, a PocketBase privesc, an LFI via a backup path, and finally a CSRF endpoint with no server-side origin checks at all. moral of the story across basically every single one of these: never trust the client, and never let a single security control (a cookie flag, a `robots.txt` disallow, a frontend check) be the *only* thing standing between a user and someone else's data.
 
 ---
@@ -866,4 +862,4 @@ Several weaknesses in Darkly are **design choices rather than isolated bugs** �
 | [19](#nineteenth-vulnerability----security-logging--monitoring-failures-owasp-a09) | Security logging & monitoring failures (A09 — fake telemetry, no rate-limit) | — (no flag) |
 | [20](#twentieth-vulnerability----insecure-design-owasp-a04) | Insecure design (A04 — md5-by-design, predictable tokens, no anti-automation) | — (no flag) |
 
-So in the end i got **10 flags** (6 mandatory + 4 bonus) and explained **20 vulnerabilities**. The subject says the platform hides 10 flags and 19 vulns, so both are covered, and the bonus (5 more vulns with at least one that gives no flag) is easily met since vulns 11 to 20 all give no flag.
+So in the end i got **10 flags** (6 mandatory + 4 bonus) and explained **20 vulnerabilities** (10 mandatory + 10 bonus). The subject asks for 19 vulns to exist on the platform overall, but only requires explaining 10 of them for mandatory + 5 more for bonus (15 minimum) — i went further and explained all 20 i found, doubling the bonus requirement, so both the flag count and the vuln-explaining requirement are cleared with room to spare.

@@ -9,24 +9,29 @@ data** — here, `md5(email)`. Anyone who knows the email can reproduce the toke
 offline, so the reset proves nothing about controlling the mailbox.
 
 ## How the breach works
-1. The forum hints the reset token is a hardcoded MD5.
+1. A student, `benjamin`, posts a public "PSA" on the forum outing the bug on
+   himself: the reset link worked with no email, the token was just sitting in
+   the URL, and it's literally `md5(email)` — adding that "once they're in, your
+   account recovery code is just sitting there on your profile settings page."
+   He names both the flaw and where its flag lives.
 
    ![hint](Resources/forpass1.png)
 
-2. We request a reset for a victim whose email is public (breach 01).
+2. We request a password reset for `benjamin`'s own (public, see breach 01) email.
 
    ![request reset](Resources/forpass2.png)
 
-3. Decoding the token in the reset URL shows it equals `md5(victim_email)`:
+3. Decoding the token in the reset URL shows it equals `md5(benjamin's_email)`:
 
    ![token = md5](Resources/forpass3.png)
    ![md5 match](Resources/forpass4.png)
 
-4. We set a new password and log in.
+4. We set a new password with the forged token and log in as `benjamin`.
 
    ![new password](Resources/forpass5.png)
 
-5. The change-password area reveals the flag.
+5. Exactly as he described, `/profile/me/settings` has a box literally labelled
+   "Account recovery code" — that's the flag.
 
    ![flag](Resources/forpass7.png)
 
